@@ -490,7 +490,25 @@ export default function Wizard() {
         }
       };
 
-      await setDoc(doc(db, FIRESTORE_COLLECTION, documentId), cleanData);
+      // Función de seguridad: Firestore arroja error fatal si encuentra cualquier valor undefined
+      const sanitizeForFirestore = (obj: any): any => {
+        if (obj === null || obj === undefined) return null;
+        if (typeof obj !== 'object') return obj;
+        if (obj instanceof Date) return obj;
+        if (obj && typeof obj === 'object' && ('_methodName' in obj || obj.constructor?.name === 'FieldValue')) {
+          return obj;
+        }
+        if (Array.isArray(obj)) {
+          return obj.map(item => sanitizeForFirestore(item));
+        }
+        const clean: Record<string, any> = {};
+        for (const [key, val] of Object.entries(obj)) {
+          clean[key] = val === undefined ? null : sanitizeForFirestore(val);
+        }
+        return clean;
+      };
+
+      await setDoc(doc(db, FIRESTORE_COLLECTION, documentId), sanitizeForFirestore(cleanData));
 
       setSubmittedProject({
         id: documentId,
